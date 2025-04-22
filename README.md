@@ -81,7 +81,7 @@ Enter the consumer key and secret key that you obtained in the last step, then c
    cd ./tumblmark
    ```
 
-2. Run the script:
+2. Run the script, with or without arguments (see [Optional arguments](#optional-arguments)):
    ```bash
    ./tumblmark.py
    ```
@@ -219,7 +219,27 @@ title: 'A new post'
 Here's my new post!
 ```
 
-A number of applications exist for various platforms that support rich-text editing of Markdown files. [Obsidian](https://obsidian.md/) is a popular free option that's great for managing projects like these. Just point it at your `/docs` directory when setting up a new vault.
+A number of applications exist for various platforms that support rich-text editing of Markdown files. [Zettlr](https://zettlr.com/) (free) and [Typora](https://typora.io/) (paid with free trial) are two solid cross-platform options to consider.
+
+> [!NOTE]
+>
+> While post titles exported from Tumblr are exported in single quotes (`'`) for safety, most post titles don't need to follow this convention. (The exception is post titles where the data type is unclear, such as a title made up of only numbers.) If you do choose to wrap your post titles in quotes, make sure that any single quotes used in the title are *doubled* to prevent errors at build time.
+>
+> ```markdown
+> ---
+> date: 2025-04-22
+> title: 'This post title won''t break anything'
+> ---
+> ```
+>
+> Alternatively, post titles containing single quotes can be safely wrapped in double quotes.
+>
+> ```markdown
+> ---
+> date: 2025-04-22
+> title: "This post title won't break anything"
+> ---
+> ```
 
 ### Building your site
 
