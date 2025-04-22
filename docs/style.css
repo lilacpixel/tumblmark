@@ -135,6 +135,10 @@
 	opacity: 1;
 }
 
+.md-typeset .source {
+	font-size: 80%;
+}
+
 .md-typeset .video {
 	width: 100%;
 	max-width: 30rem;

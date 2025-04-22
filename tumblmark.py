@@ -66,6 +66,9 @@ class FixMarkup(MarkdownConverter):
 		# pass through image row tags
 		if 'class' in el.attrs and 'image-row' in el.attrs['class']:
 			return '<p class="image-row" markdown="span">' + text + '</p>'
+		# pass through source attribution
+		if 'class' in el.attrs and 'source' in el.attrs['class']:
+			return '\n\n' + text + '\n{.source}'
 		else:
 			return super().convert_p(el, text, parent_tags)
 	# pass through other formatting tags
@@ -196,12 +199,16 @@ def get_block(block, post, index, path):
 					track_info = ' - '.join(track_info_list)
 					return '<a href="' + block['url'] + '">' + track_info + '</a>'
 	if type == 'image':
+		if 'attribution' in block:
+			attribution = 'Source: ' + block['attribution']['url']
+		else:
+			attribution = ''
 		if 'alt_text' in block:
 			alt = block['alt_text'].replace('"', '&quot;')
 		else:
 			alt = ''
 		# download and return largest available image file
-		return '<img src="' + download_media(block['media'][0]['url'], 'img', path) + '" alt="' + alt + '">'
+		return '<img src="' + download_media(block['media'][0]['url'], 'img', path) + '" alt="' + alt + '" title="' + attribution + '">'
 	if type == 'link':
 		return '<p><a href="' + block['url'] + '">' + block['title'] + '</a></p>'
 	if type == 'text':
@@ -438,6 +445,15 @@ def save_post(client, post, type, username, path):
 					reblog_content.append(get_block(content, reblog, i, path))
 				reblogs.append('<div class="reblog"' + post_date + '>' + ''.join(reblog_content) + '</div>')
 		body_list.insert(0, '\n\n'.join(reblogs))
+	
+	# post contains source
+	if 'source_url' in post:
+		if 'source_title' in post:
+			source_title = post['source_title']
+		else:
+			source_title = post['source_url']
+		body_list.append('<p class="source"><strong>Source:</strong> <a href="' + post['source_url'] + '">' + source_title + '</a></p>')
+
 	body = '\n'.join(body_list)
 
 	# modify tree before Markdown conversion
@@ -619,9 +635,13 @@ to view your token and token secret.
 				print(Panel.fit(Padding("""[yellow]•[/] Edit [i]mkdocs.yml[/] to add your site name and adjust any other settings you'd like (colors, avatar, etc).
 [yellow]•[/] Run [reverse]mkdocs serve[/] and navigate to [b]http://localhost:8000[/] in the browser to preview your site.
 [yellow]•[/] Create any new posts and/or pages you'd like in the Markdown editor of your choice.
-[yellow]•[/] Once everything is looking and working as intended, run [reverse]mkdocs build[/] to build your site!""", 1), border_style='royal_blue1', highlight=True, title=':glowing_star: [b default]Next Steps[/]', title_align='left'))
+[yellow]•[/] Once everything is looking and working as intended, run [reverse]mkdocs build[/] to build your site!
 
-				print('\n[b]Thank you for trying TumblMark![/] :heart-emoji:\n\n:question_mark: Questions or suggestions? Let me know over on GitHub: [b]https://github.com/lilacpixel/tumblmark/issues[/]\n\nHave a great day! :cat2:\n')
+:question_mark: [b]Questions or suggestions?[/] Let me know over on GitHub:
+
+[b]https://github.com/lilacpixel/tumblmark/issues[/]""", 1), border_style='royal_blue1', highlight=True, title=':glowing_star: [b default]Next Steps[/]', title_align='left'))
+
+				print('\n[b]Thank you for trying TumblMark![/] :heart-emoji:\n\nHave a great day! :cat2:\n')
 	except KeyboardInterrupt:
 		# exit cleanly if interrupt is received
 		print('\n\nKeyboard interrupt detected; exiting! :wave:')
