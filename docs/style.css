@@ -1,0 +1,159 @@
+@import url(https://fonts.bunny.net/css?family=dancing-script:400|jetbrains-mono:400|roboto:300,400,400i,700);
+
+:root {
+	--color-blue: #00B8FF;
+	--color-green: #00CF35;
+	--color-orange: #FF8A00;
+	--color-pink: #FF62CE;
+	--color-purple: #7C5CFF;
+	--color-red: #FF4930;
+
+	--md-code-font: 'JetBrains Mono';
+	--md-cursive-font: 'Dancing Script';
+	--md-text-font: 'Roboto';
+}
+
+.md-sidebar .avatar {
+	margin-bottom: 1.2rem;
+	border-radius: 50%;
+	width: 10rem;
+	height: 10rem;
+	overflow: hidden;
+}
+
+.md-sidebar .avatar img {
+	display: block;
+	width: 100%;
+	height: 100%;
+	object-fit: cover;
+}
+
+.md-typeset .audio {
+	display: block;
+	margin: 1rem auto;
+}
+
+.md-typeset .audio__title {
+	margin-bottom: 0;
+	max-width: none;
+	font-weight: bold;
+	font-style: normal;
+}
+
+.md-typeset .audio__album {
+	margin-bottom: 0.5em;
+	font-style: italic;
+}
+
+.md-typeset blockquote > :first-child {
+	margin-top: 0;
+}
+
+.md-typeset .chat-text {
+	font-family: var(--md-code-font-family);
+	white-space: pre-wrap;
+}
+
+.md-typeset .color--blue {
+	color: var(--color-blue);
+}
+
+.md-typeset .color--green {
+	color: var(--color-green);
+}
+
+.md-typeset .color--orange {
+	color: var(--color-orange);
+}
+
+.md-typeset .color--pink {
+	color: var(--color-pink);
+}
+
+.md-typeset .color--purple {
+	color: var(--color-purple);
+}
+
+.md-typeset .color--red {
+	color: var(--color-red);
+}
+
+.md-typeset .cursive-text {
+	font-family: var(--md-cursive-font), cursive;
+	font-size: 2em;
+	line-height: 1.125;
+}
+
+.md-typeset .h1,
+.md-typeset .h2,
+.md-typeset p {
+	margin: 1rem 0;
+}
+
+.md-typeset .h1,
+.md-typeset .h2 {
+	letter-spacing: -.01em;
+}
+
+.md-typeset .h1 {
+	font-size: 1.5625em;
+	font-weight: 300;
+	line-height: 1.4;
+}
+
+.md-typeset .h2 {
+	font-size: 1.25em;
+	font-weight: 400; 
+	line-height: 1.5;
+}
+
+.md-typeset .image-row {
+	display: grid;
+	grid-auto-columns: minmax(0, 1fr);
+	grid-auto-flow: column;
+	gap: 0.5rem;
+	margin: 0.5rem 0;
+}
+
+.md-typeset .image-row img {
+	width: 100%;
+	height: 100%;
+	object-fit: cover;
+}
+
+.md-typeset img {
+	display: block;
+}
+
+.md-typeset .quote-text {
+	font-family: 'Georgia', serif;
+	font-size: 1.875em;
+	line-height: 1.3;
+}
+
+.md-typeset small {
+	opacity: 1;
+}
+
+.md-typeset .video {
+	width: 100%;
+	max-width: 30rem;
+	height: 17.5rem;
+}
+
+@media screen and (min-width: 45em) {
+	.md-typeset .audio {
+		display: grid;
+		grid-template-columns: minmax(0, 12rem) 1fr;
+		align-items: center;
+		margin: 1rem 0;
+	}
+
+	.md-typeset .audio__title {
+		margin: 0;
+	}
+
+	.md-typeset .audio__wrapper {
+		padding: 1rem 2rem;
+	}
+}
