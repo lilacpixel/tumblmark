@@ -13,8 +13,6 @@ TumblMark supports all Tumblr post formats (both legacy and NPF), as well as cus
 - [Python 3.x](https://www.python.org/downloads/)
 - [MkDocs](https://www.mkdocs.org/) + [Material for MkDocs](https://squidfunk.github.io/mkdocs-material/)
 - [MkDocs-GLightbox](https://github.com/blueswen/mkdocs-glightbox)
-- [Markdownify](https://github.com/matthewwithanm/python-markdownify)
-- [mdx-truly-sane-lists](https://github.com/radude/mdx_truly_sane_lists)
 - [PyTumblr](https://github.com/tumblr/pytumblr)
 - [Rich](https://github.com/Textualize/rich)
 
@@ -36,7 +34,7 @@ TumblMark supports all Tumblr post formats (both legacy and NPF), as well as cus
 
 2. Install the required dependencies:
    ```bash
-   pip install mkdocs mkdocs-material mkdocs-glightbox mdx_truly_sane_lists python-markdownify pytumblr rich
+   pip install mkdocs mkdocs-material mkdocs-glightbox pytumblr rich
    ```
 
 3. Download the latest [release](/releases/latest) from GitHub and extract it.

@@ -85,12 +85,6 @@
 }
 
 .md-typeset .h1,
-.md-typeset .h2,
-.md-typeset p {
-	margin: 1rem 0;
-}
-
-.md-typeset .h1,
 .md-typeset .h2 {
 	letter-spacing: -.01em;
 }
@@ -121,7 +115,8 @@
 	object-fit: cover;
 }
 
-.md-typeset img {
+.md-typeset img,
+.md-typeset video {
 	display: block;
 }
 
@@ -139,10 +134,8 @@
 	font-size: 80%;
 }
 
-.md-typeset .video {
-	width: 100%;
-	max-width: 30rem;
-	height: 17.5rem;
+.md-typeset .youtube_iframe {
+	aspect-ratio: 16/9;
 }
 
 @media screen and (min-width: 45em) {

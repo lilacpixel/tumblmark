@@ -1,8 +1,6 @@
 #!/usr/bin/env python
 
-from bs4 import BeautifulSoup, Comment
 from datetime import datetime
-from markdownify import MarkdownConverter
 from rich import print
 from rich.console import Console
 from rich.padding import Padding
@@ -19,87 +17,6 @@ import re
 import sys
 import time
 import urllib.request
-
-# define functions for custom Markdown converter
-class FixMarkup(MarkdownConverter):
-	def convert_div(self, el, text, parent_tags):
-		# wrapper for ask and reblog posts
-		if 'class' in el.attrs and el.attrs['class'][0] in ('question', 'reblog'):
-			lines = text.splitlines()
-			counter = 0
-			while counter < len(lines):
-				lines[counter] = '    ' + lines[counter]
-				counter += 1
-			if 'question' in el.attrs['class']:
-				if 'data-user-url' in el.attrs:
-					user = '[' + el.attrs['data-username'] + '](' + el.attrs['data-user-url'] + ')'
-				elif 'data-username' in el.attrs:
-					user = el.attrs['data-username']
-				else:
-					user = 'Anonymous'
-				question = '    **' + user + ':**\n\n' + '\n'.join(lines)
-				return '!!! note ""\n' + question + '\n'
-			else:
-				if 'data-timestamp' in el.attrs:
-					title = el.attrs['data-timestamp']
-				else:
-					title = 'Reblog'
-				return '!!! quote "' + title + '"\n' + '\n'.join(lines) + '\n'
-		else:
-			return super().convert_div(el, text, parent_tags)
-	def convert_figure(self, el, text, parent_tags):
-		# pass through figure tags as-is
-		if 'class' in el.attrs and 'audio' in el.attrs['class']:
-			return str(el)
-		else:
-			return super().convert_figure(el, text, parent_tags)
-	def convert_iframe(self, el, text, parent_tags):
-		# pass through iframe tags as-is
-		return str(el)
-	def convert_p(self, el, text, parent_tags):
-		# pass through headings and Tumblr formatting
-		if (
-			('class' in el.attrs and el.attrs['class'][0] in ('h1', 'h2')) or
-			('class' in el.attrs and el.attrs['class'][0] in ('chat-text', 'cursive-text', 'quote-text'))
-		):
-			return str(el) + '\n'
-		# pass through image row tags
-		if 'class' in el.attrs and 'image-row' in el.attrs['class']:
-			return '<p class="image-row" markdown="span">' + text + '</p>'
-		# pass through source attribution
-		if 'class' in el.attrs and 'source' in el.attrs['class']:
-			return '\n\n' + text + '\n{.source}'
-		else:
-			return super().convert_p(el, text, parent_tags)
-	# pass through other formatting tags
-	def convert_small(self, el, text, parent_tags):
-		return str(el)
-	def convert_span(self, el, text, parent_tags):
-		return str(el)
-	# pass through video tags
-	def convert_video(self, el, text, parent_tags):
-		return str(el)
-
-def md(html, **options):
-	return FixMarkup(**options).convert(html)
-
-# additional processing of output HTML with Beautiful Soup
-def bs_process(soup, username):
-	# preserve comment tags that are used to create read more links
-	for comment in soup.find_all(string=lambda text: isinstance(text, Comment)):
-		if comment.strip() == 'more':
-			comment.replace_with('<!-- more -->')
-	# adjust output of Tumblr-specified iframes
-	for iframe in soup.find_all('iframe'):
-		# use small height for Spotify players
-		if 'class' in iframe and 'spotify_audio_player' in iframe['class']:
-			iframe.attrs['height'] = '152'
-		# adjust default dimensions of YouTube embeds and use nocookie URLs
-		if 'youtube.com' in iframe.attrs['src']:
-			iframe.attrs['src'] = iframe.attrs['src'].replace('youtube.com', 'youtube-nocookie.com').split('?')[0]
-			iframe.attrs['width'] = '500'
-			iframe.attrs['height'] = '280'
-	return soup
 
 # check requested posts before saving to disk
 def check_posts(client, username, total_posts, offset, path, args, saved_posts):
@@ -146,10 +63,13 @@ def download_media(url, type, path):
 # get ask content for ask posts
 def get_ask(ask, post, blocks, path):
 	ask_content = []
-	ask_content.insert(0, '<div class="question"' + ask['name'] + ask['url'] + '>')
+	if ask['name'] != '' and ask['url'] != '':
+		asker = '**[' + ask['name'] + '](' + ask['url'] + '):**'
+	else:
+		asker = '**Anonymous:**'
+	ask_content.insert(0, '!!! note ""\n' + '    ' + asker + '\n\n')
 	for i, block in enumerate(blocks[0:ask['end'] + 1]):
-		ask_content.append(get_block(post['content'][i], post, i, path))
-	ask_content.insert(ask['end'] + 2, '</div>')
+		ask_content.append('    ' + get_block(post['content'][i], post, i, path))
 	return ''.join(ask_content)
 
 # get length and attribution info for ask posts
@@ -160,8 +80,8 @@ def get_ask_info(layout):
 	ask['end'] = layout['blocks'][-1]
 	if 'attribution' in layout:
 		if 'blog' in layout['attribution']:
-			ask['name'] = ' data-username="' + layout['attribution']['blog']['name'] + '"'
-			ask['url'] = ' data-user-url="' + layout['attribution']['blog']['url'] + '"'
+			ask['name'] = layout['attribution']['blog']['name']
+			ask['url'] = layout['attribution']['blog']['url']
 	return ask
 
 # get block from post content
@@ -186,7 +106,11 @@ def get_block(block, post, index, path):
 		else:
 			if 'embed_html' in block:
 				if block['embed_html'] != '':
-					return block['embed_html']
+					embed = block['embed_html']
+					if 'spotify_audio_player' in embed:
+						embed = re.sub(r'(width=")[0-9]*(")', r'\g<1>100%\g<2>', embed)
+						embed = re.sub(r'(height=")[^"]*(")', r'\g<1>152\g<2>', embed)
+					return embed
 				else:
 					track_info_list = []
 					if block in ('artist', 'title'):
@@ -200,7 +124,7 @@ def get_block(block, post, index, path):
 					return '<a href="' + block['url'] + '">' + track_info + '</a>'
 	if type == 'image':
 		if 'attribution' in block:
-			attribution = 'Source: ' + block['attribution']['url']
+			attribution = ' "Source: ' + block['attribution']['url'] + '"'
 		else:
 			attribution = ''
 		if 'alt_text' in block:
@@ -208,143 +132,112 @@ def get_block(block, post, index, path):
 		else:
 			alt = ''
 		# download and return largest available image file
-		return '<img src="' + download_media(block['media'][0]['url'], 'img', path) + '" alt="' + alt + '" title="' + attribution + '">'
+		return '![' + alt + '](' + download_media(block['media'][0]['url'], 'img', path) + attribution + ')'
 	if type == 'link':
-		return '<p><a href="' + block['url'] + '">' + block['title'] + '</a></p>'
+		return '[' + block['title'] + '](' + block['url'] + ')'
+	if type == 'poll':
+		question = block['question']
+		answers = []
+		for answer in block['answers']:
+			answers.append('    - [x] **' + answer['answer_text'] + '**')
+		return '!!! note ""\n    <p class="h1">❓ ' + question + '</p>\n\n' + '\n'.join(answers) + '\n\n    [View original poll on Tumblr](' + post['post_url'] + '){.md-button .md-button--primary}'
 	if type == 'text':
 		text_list = list(block['text'])
 		if 'formatting' in block:
-			# create list for all formatting in block
-			format_list = []
 			# set start and end tags to be inserted for formatting
 			for formatting in block['formatting']:
 				type = formatting['type']
 				if type == 'bold':
-					start_tag = '<strong>'
-					end_tag = '</strong>'
+					start_tag = '**'
+					end_tag = '**'
 				elif type == 'color':
-					start_tag = '<span style="color: ' + formatting['hex'] + ';">'
+					start_tag = '<span style="color: ' + formatting['hex'] + ';" markdown="span">'
 					end_tag = '</span>'
 				elif type == 'italic':
-					start_tag = '<em>'
-					end_tag = '</em>'
+					start_tag = '*'
+					end_tag = '*'
 				elif type == 'link':
-					start_tag = '<a href="' + formatting['url'] + '">'
-					end_tag = '</a>'
+					start_tag = '['
+					end_tag = '](' + formatting['url'] + ')'
 				elif type == 'mention':
-					start_tag = '<a href="' + formatting['blog']['url'] + '">'
-					end_tag = '</a>'
+					start_tag = '['
+					end_tag = '](' + formatting['blog']['url'] + ')'
 				elif type == 'small':
-					start_tag = '<small>'
+					start_tag = '<small markdown="span">'
 					end_tag = '</small>'
 				elif type == 'strikethrough':
-					start_tag = '<del>'
-					end_tag = '</del>'
+					start_tag = '~~'
+					end_tag = '~~'
 				else:
 					print('[b red]Error:[/] No formatting for type ' + type)
-				# append tags and start and end positions to list
-				format_list.append({'position': formatting['start'], 'tag': start_tag})
-				format_list.append({'position': formatting['end'], 'tag': end_tag})
-			# sort list so that all formatting will be applied sequentially
-			format_list = sorted(format_list, key=lambda x: x['position'])
-			# insert tags at specified locations
-			for i, format in enumerate(format_list):
-				text_list.insert(format['position'] + i, format['tag'])
+				format_start = formatting['start']
+				format_end = formatting['end']
+				text_list[format_start] = start_tag + text_list[format_start]
+				text_list[format_end - 1] += end_tag
 		# join list into string
 		text = ''.join(text_list)
 		if 'subtype' in block:
 			subtype = block['subtype']
 			if subtype == 'chat':
-				text = '<p class="chat-text">' + text + '</p>'
+				text = '<p class="chat-text" markdown="span">' + text + '</p>'
 			elif subtype == 'heading1':
-				if 'post' in post or index > 0:
-					text = '<p class="h1">' + text + '</p>'
+				if 'post' not in post and block == post['content'][0]:
+					text = '# ' + text
 				else:
-					text = '<h1>' + text + '</h1>'
+					text = '<p class="h1" markdown="span">' + text + '</p>'
 			elif subtype == 'heading2':
-				text = '<p class="h2">' + text + '</p>'
+				text = '<p class="h2" markdown="span">' + text + '</p>'
 			elif subtype == 'indented':
-				text = '<blockquote><p>' + text + '</p></blockquote>'
+				text = '> ' + text
 			elif subtype.endswith('list-item'):
-				text = ''.join(text_list)
-				text_list = []
-				# set values for current, previous, and next items
-				current_item_subtype = block['subtype']
 				if 'indent_level' in block:
-					current_indent_level = block['indent_level']
+					indent_level = block['indent_level']
 				else:
-					current_indent_level = 0
-				# set default values for previous and next items
-				previous_item_subtype = None
-				previous_indent_level = 0
-				next_item_subtype = None
-				next_indent_level = 0
-				# if previous and next items exist in the range, assign actual values
-				if 0 <= index - 1 < len(content):
-					if 'subtype' in content[index - 1]:
-						previous_item_subtype = content[index - 1]['subtype']
-					if 'indent_level' in content[index - 1]:
-						previous_indent_level = content[index - 1]['indent_level']
-				if 0 <= index + 1 < len(content):
-					if 'subtype' in content[index + 1]:
-						next_item_subtype = content[index + 1]['subtype']
-					if 'indent_level' in content[index + 1]:
-						next_indent_level = content[index + 1]['indent_level']
-				# set start and end tags for current item subtype
-				if current_item_subtype.startswith('unordered'):
-					start_tag = '<ul>'
-					end_tag = '</ul>'
+					indent_level = 0
+				if block['subtype'].startswith('unordered'):
+					list_item_prefix = '- '
 				else:
-					start_tag = '<ol>'
-					end_tag = '</ol>'
-				# if previous tag does not exist, is of a different subtype, or has a lower indent level, output start tag
-				if (
-					previous_item_subtype == None or
-					previous_item_subtype != current_item_subtype or
-					previous_indent_level < current_indent_level
-				):
-					text_list.append(start_tag)
-				text_list.append('<li>' + text)
-				# close list item if next indent level will be the same or less or if the item type changes
-				if next_indent_level <= current_indent_level or next_item_subtype != current_item_subtype:
-					text_list.append('</li>')
-				# if next tag does not exist, is of a different subtype, or has a lower indent level, output end tag(s)
-				if (
-					next_item_subtype == None or
-					next_item_subtype != current_item_subtype or
-					next_indent_level < current_indent_level
-				):
-					# output end tags equal to the number of nested levels we need to close
-					# if indent levels are the same, subtype is different
-					if next_indent_level == current_indent_level:
-						counter = 1
-					else:
-						counter = current_indent_level - next_indent_level
-					while counter > 0:
-						text_list.append(end_tag)
-						# close list item if there is no following list item or if the indent level is decreasing
-						if not (
-							next_item_subtype == None or
-							next_indent_level > current_indent_level
-						):
-							text_list.append('</li>')
-						counter -= 1
-				text = '\n'.join(text_list)
+					prefix_number = 1
+					# check if previous item exists
+					if 0 <= index - 1 < len(content):
+						# check all previous blocks in reverse order
+						for item in reversed(content[:index]):
+							if 'subtype' in item:
+								# check if previous item is of same subtype
+								if item['subtype'] == block['subtype']:
+									if 'indent_level' in item:
+										item_indent_level = item['indent_level']
+									else:
+										item_indent_level = 0
+									# check if previous item has same indent level
+									# if so, increment leading numeral
+									if item_indent_level == indent_level:
+										prefix_number += 1
+							else:
+								break
+					list_item_prefix = str(prefix_number) + '. '
+				text = ('    ' * indent_level) + list_item_prefix + text
 			elif subtype == 'quirky':
-				text = '<p class="cursive-text">' + text + '</p>'
+				text = '<p class="cursive-text" markdown="span">' + text + '</p>'
 			elif subtype == 'quote':
-				text = '<p class="quote-text">' + text + '</p>'
+				text = '<p class="quote-text" markdown="span">' + text + '</p>'
 			else:
 				print('[b red]Error:[/] No formatting for subtype ' + subtype)
-		else:
-			text = '<p>' + text + '</p>'
 		return text
 	if type == 'video':
 		if 'embed_html' in block:
 			if block['embed_html'] != '':
-				return block['embed_html']
+				embed = block['embed_html']
+				if 'youtube_iframe' in embed:
+					embed = re.sub(r'(src="[a-z:\/\.]*)youtube\.com', r'\1youtube-nocookie.com', embed)
+					embed = re.sub(r'(src="[^\?]*)\?[^"]*(")', r'\1\2', embed)
+					embed = embed.replace('id=', 'class=')
+					embed = re.sub(r'(width=")[0-9]*(")', r'\g<1>100%\g<2>', embed)
+					embed = re.sub(r' height="[0-9]*"', '', embed)
+					embed = embed.replace('  ', ' ')
+				return embed
 			else:
-				return '<a href="' + block['url'] + '">Video Link</a>'
+				return '[Video Link](' + block['url'] + ')'
 		else:
 			return '<video width="' + str(block['media']['width']) + '" height="' + str(block['media']['height']) + '" controls><source src="/' + download_media(block['media']['url'], 'video', path) + '" type="' + block['media']['type'] + '">This device does not support native HTML5 video.</video>'
 
@@ -387,7 +280,7 @@ def get_layout(layout, post, ask, content, path):
 				layout_content.append('<!-- more -->')
 	# read more links on reblog posts should redirect to original
 	if block_end < len(content):
-		layout_content.append('<a href="/post/' + post_id + '">View original post</a>')
+		layout_content.append('[View original post](/post/' + post_id + ')')
 	return layout_content
 
 # get original post dates for posts in reblog chain
@@ -399,7 +292,7 @@ def get_post_date(client, username, id):
 		print('[b red]Error:[/] ' + str(e))
 		post_date = ''
 	else:
-		post_date = ' data-timestamp="' + datetime.fromtimestamp(original_reblog['timestamp']).strftime('%B %-d, %Y') + '"'
+		post_date = datetime.fromtimestamp(original_reblog['timestamp']).strftime('%B %-d, %Y')
 	return post_date
 
 # save post and content to disk
@@ -422,7 +315,7 @@ def save_post(client, post, type, username, path):
 			# for other layout-based posts, use get_layout
 			else:
 				layout_content = get_layout(layout, post, ask, content, path)
-				body_list.append(''.join(layout_content))
+				body_list.append('\n\n'.join(layout_content))
 	else:
 		for i, block in enumerate(content):
 			body_list.append(get_block(block, post, i, path))
@@ -436,14 +329,14 @@ def save_post(client, post, type, username, path):
 				for layout in reblog['layout']:
 					post_date = get_post_date(client, username, reblog['post']['id'])
 					reblog_content = get_layout(layout, reblog, ask, reblog['content'], path)
-					reblogs.append('<div class="reblog"' + post_date + '>' + ''.join(reblog_content) + '</div>')
+					reblogs.append('!!! quote "' + post_date + '"\n    ' + '\n\n    '.join(reblog_content))
 			# for all others, use get_block
 			else:
 				post_date = get_post_date(client, username, reblog['post']['id'])
 				reblog_content = []
 				for i, content in enumerate(reblog['content']):
 					reblog_content.append(get_block(content, reblog, i, path))
-				reblogs.append('<div class="reblog"' + post_date + '>' + ''.join(reblog_content) + '</div>')
+				reblogs.append('!!! quote "' + post_date + '"\n    ' + '\n\n    '.join(reblog_content))
 		body_list.insert(0, '\n\n'.join(reblogs))
 	
 	# post contains source
@@ -452,37 +345,33 @@ def save_post(client, post, type, username, path):
 			source_title = post['source_title']
 		else:
 			source_title = post['source_url']
-		body_list.append('<p class="source"><strong>Source:</strong> <a href="' + post['source_url'] + '">' + source_title + '</a></p>')
+		body_list.append('**Source:** [' + source_title + '](' + post['source_url'] + ')\n{.source}')
 
-	body = '\n'.join(body_list)
-
-	# modify tree before Markdown conversion
-	soup = BeautifulSoup(body, 'html.parser')
-	soup = bs_process(soup, username)
+	body = '\n\n'.join(body_list)
 
 	# populate front matter
 	timestamp = post['timestamp']
 	date = datetime.fromtimestamp(timestamp).strftime('%Y-%m-%dT%H:%M:%S')
 	# use custom titles for legacy post types
 	if post['original_type'] == 'audio':
-		if soup.select('figcaption.audio__title'):
-			title = soup.select('figcaption.audio__title')[0].string.replace("'", "''")
+		if 'figcaption' in body:
+			title = re.split(r'<\/?figcaption[^>]*>', body)[1].replace("'", "''")
 		else:
 			title = 'Audio'
 		title = "'🎵 " + title + "'"
 	elif post['original_type'] == 'chat':
 		title = "'💬 Chat'"
 	elif post['original_type'] == 'link':
-		title = "'🔗 " + soup.a.string.replace("'", "''") + "'"
+		title = "'🔗 " + re.split(r'\[|\]', body_list[0])[1].replace("'", "''") + "'"
 	elif post['original_type'] == 'note':
 		title = "'❓ Ask'"
 	elif post['original_type'] == 'video':
 		title = "'🎥 Video'"
 	else:
 		# if the first element in the post is an H1 heading, use it as the post's title
-		first_element = soup.select(':first-child')[0]
-		if first_element.name == 'h1':
-			title = "'" + first_element.string.replace("'", "''") + "'"
+		first_element = body_list[0]
+		if first_element.startswith('#'):
+			title = "'" + re.split(r'#|\n', first_element)[1].strip().replace("'", "''") + "'"
 		else:
 			title = "'Untitled'"
 	filename = post['id_string'] + '.md'
@@ -506,8 +395,7 @@ def save_post(client, post, type, username, path):
 	# write to selected filename
 	file = open(path + filename, 'w')
 	file.writelines(front_matter)
-	markdown_body = md(str(soup), heading_style='ATX')
-	file.write(markdown_body)
+	file.write(body)
 	file.close()
 
 # main function

@@ -34,10 +34,12 @@ markdown_extensions:
   - admonition
   - attr_list
   - md_in_html
-  - mdx_truly_sane_lists
   - pymdownx.details
   - pymdownx.superfences
+  - pymdownx.tasklist:
+      custom_checkbox: true
   - pymdownx.tilde
+  - sane_lists
   - smarty
 plugins:
   - blog:
